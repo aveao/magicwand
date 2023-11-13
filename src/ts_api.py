@@ -21,7 +21,7 @@ class TailscaleAPI:
             client_secret,
         )
         req = requests.post(
-            "https://api.tailscale.com/api/v2/oauth/token",
+            f"{self.API_BASE}/oauth/token",
             auth=oauth2_basic_auth,
         )
         req.raise_for_status()

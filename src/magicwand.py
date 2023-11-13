@@ -25,19 +25,24 @@ def generate_ts_dns_records(ts_api_inst: TailscaleAPI) -> dict:
     return dns_mappings
 
 
-def filter_cf_dns(cf_dns_records: dict, suffix: str) -> dict:
+def filter_cf_dns(cf_dns_records: dict) -> dict:
     dns_mappings = defaultdict(dict)
     for dns_record in cf_dns_records:
         # Convert "whatever.ts.example.com" to "whatever.ts"
         subdomain_name = (
             dns_record["name"].replace(dns_record["zone_name"], "").strip(".")
         )
-        # Only return DNS records that are used by magicwand
+        # Only return DNS records created by magicwand
         # Only return A or AAAA records
-        if not subdomain_name.endswith(suffix) or dns_record["type"] not in [
-            "A",
-            "AAAA",
-        ]:
+        if (
+            dns_record["type"]
+            not in [
+                "A",
+                "AAAA",
+            ]
+            or not dns_record["comment"]
+            or ("magicwand" not in dns_record["comment"].lower())
+        ):
             continue
 
         dns_mappings[subdomain_name][dns_record["type"]] = {
@@ -61,11 +66,11 @@ def sync_ts_dns_to_cloudflare_dns(
                 subdomain not in cf_dns_records
                 or record_type not in cf_dns_records[subdomain]
             ):
-                logging.info(f"Creating {subdomain}:{ip_address}")
+                logging.info("Creating %s:%s", subdomain, ip_address)
                 dns_record_object = create_cf_dns_record_object(subdomain, ip_address)
                 cf_api_inst.create_dns_record(cf_zone_id, dns_record_object)
             elif cf_dns_records[subdomain][record_type]["ip"] != ip_address:
-                logging.info(f"Updating {subdomain}:{ip_address}")
+                logging.info("Updating %s:%s", subdomain, ip_address)
                 dns_record_object = create_cf_dns_record_object(subdomain, ip_address)
                 dns_record_identifier = cf_dns_records[subdomain][record_type]["id"]
                 cf_api_inst.put_dns_record(
@@ -74,7 +79,7 @@ def sync_ts_dns_to_cloudflare_dns(
                     dns_record_object,
                 )
             else:
-                logging.debug(f"No need to change {subdomain}:{ip_address}")
+                logging.info("Skipping %s:%s", subdomain, ip_address)
 
 
 def clean_cloudflare_dns(
@@ -88,7 +93,7 @@ def clean_cloudflare_dns(
         # Convert "whatever.ts" to "whatever"
         clean_subdomain = subdomain[: -len(cf_suffix)]
         if clean_subdomain not in ts_dns_records:
-            logging.info(f"Deleting {subdomain}")
+            logging.info("Deleting %s", subdomain)
             for record_type in cf_dns_records[subdomain]:
                 dns_record_identifier = cf_dns_records[subdomain][record_type]["id"]
                 cf_api_inst.delete_dns_record(
@@ -121,6 +126,11 @@ def parse_arguments():
         default="INFO",
         help="Logging level (default: INFO)",
     )
+    parser.add_argument(
+        "--disable_cleanup",
+        action="store_true",
+        help="Disable cleanup of DNS records that don't have an equivalent in Tailscale",
+    )
 
     args = parser.parse_args()
     return args
@@ -132,7 +142,7 @@ if __name__ == "__main__":
 
     ts_api_inst = TailscaleAPI()
     ts_api_inst.auth_with_oauth_client(args.ts_client_id, args.ts_client_secret)
-    logging.info("Authenticated to tailscale via OAuth2.")
+    logging.info("Authenticated to Tailscale via OAuth2.")
     ts_dns_records = generate_ts_dns_records(ts_api_inst)
     logging.info("Fetched Tailscale MagicDNS data (%i devices).", len(ts_dns_records))
     logging.debug("Generated Tailscale DNS records: %s", ts_dns_records)
@@ -141,7 +151,7 @@ if __name__ == "__main__":
     cf_dns_records_raw = cf_api_inst.get_dns_records(args.cf_zone_id)
     logging.debug("Fetched Cloudflare DNS records: %s", cf_dns_records_raw)
 
-    cf_dns_records = filter_cf_dns(cf_dns_records_raw, args.cf_suffix)
+    cf_dns_records = filter_cf_dns(cf_dns_records_raw)
     logging.info(
         "Fetched Cloudflare DNS data (%i magicwand records, %i total).",
         len(cf_dns_records),
@@ -153,8 +163,9 @@ if __name__ == "__main__":
         cf_api_inst, args.cf_zone_id, args.cf_suffix, cf_dns_records, ts_dns_records
     )
 
-    clean_cloudflare_dns(
-        cf_api_inst, args.cf_zone_id, args.cf_suffix, cf_dns_records, ts_dns_records
-    )
+    if not args.disable_cleanup:
+        clean_cloudflare_dns(
+            cf_api_inst, args.cf_zone_id, args.cf_suffix, cf_dns_records, ts_dns_records
+        )
 
-    logging.info(f"All done! {len(ts_dns_records)} records synced.")
+    logging.info("All done! %i devices synced.", len(ts_dns_records))

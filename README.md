@@ -1,6 +1,6 @@
 # magicwand
 
-"Simple" script to sync Tailscale MagicDNS to Cloudflare DNS.
+"Simple" script to sync Tailscale MagicDNS to Cloudflare DNS. Fun little evening project.
 
 ## Have you ever been in this situation?
 
@@ -28,6 +28,8 @@ and then do as you please, crontab it or smth:
 `0 * * * * cd /home/ave/magicwand/src && python3 magicwand.py --ts_client_id "aaaaaaaaaaaa" --ts_client_secret "tskey-client-aaaaaaaaaaaa-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" --cf_apikey "aaaaaaaaa-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" --cf_zone_id "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"`
 
 (helpful: https://crontab.guru/)
+
+By default it uses `.ts` as the suffix (so `hostname` becomes `hostname.ts.example.com`), you can change this with `--cf_suffix`. You can theoretically set anything, including empty string.
 
 ## Limitations
 
