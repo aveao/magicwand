@@ -29,7 +29,11 @@ and then do as you please, crontab it or smth:
 
 (helpful: https://crontab.guru/)
 
-By default it uses `.ts` as the suffix (so `hostname` becomes `hostname.ts.example.com`), you can change this with `--cf_suffix`. You can theoretically set anything, including empty string.
+### Additional flags
+
+- By default it uses `.ts` as the suffix (so `hostname` becomes `hostname.ts.example.com`), you can change this with `--cf_suffix`. You can theoretically set anything, including empty string.
+- If for some reason you don't want it to clean up the DNS entries no longer in use (removed devices, changed suffix etc), you can do so with `--disable_cleanup`.
+- If you want to remove all magicwand DNS entries from a server, you can do so with `--undo_magicwand`.
 
 ## Limitations
 

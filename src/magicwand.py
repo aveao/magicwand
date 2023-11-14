@@ -131,6 +131,11 @@ def parse_arguments():
         action="store_true",
         help="Disable cleanup of DNS records that don't have an equivalent in Tailscale",
     )
+    parser.add_argument(
+        "--undo_magicwand",
+        action="store_true",
+        help="Delete all magicwand-created DNS records",
+    )
 
     args = parser.parse_args()
     return args
@@ -140,12 +145,17 @@ if __name__ == "__main__":
     args = parse_arguments()
     logging.basicConfig(level=args.log_level)
 
-    ts_api_inst = TailscaleAPI()
-    ts_api_inst.auth_with_oauth_client(args.ts_client_id, args.ts_client_secret)
-    logging.info("Authenticated to Tailscale via OAuth2.")
-    ts_dns_records = generate_ts_dns_records(ts_api_inst)
-    logging.info("Fetched Tailscale MagicDNS data (%i devices).", len(ts_dns_records))
-    logging.debug("Generated Tailscale DNS records: %s", ts_dns_records)
+    if not args.undo_magicwand:
+        ts_api_inst = TailscaleAPI()
+        ts_api_inst.auth_with_oauth_client(args.ts_client_id, args.ts_client_secret)
+        logging.info("Authenticated to Tailscale via OAuth2.")
+        ts_dns_records = generate_ts_dns_records(ts_api_inst)
+        logging.info(
+            "Fetched Tailscale MagicDNS data (%i devices).", len(ts_dns_records)
+        )
+        logging.debug("Generated Tailscale DNS records: %s", ts_dns_records)
+    else:
+        ts_dns_records = {}
 
     cf_api_inst = CloudflareAPI(args.cf_apikey)
     cf_dns_records_raw = cf_api_inst.get_dns_records(args.cf_zone_id)
