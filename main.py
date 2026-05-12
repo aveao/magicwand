@@ -25,13 +25,11 @@ def generate_ts_dns_records(ts_api_inst: TailscaleAPI) -> dict:
     return dns_mappings
 
 
-def filter_cf_dns(cf_dns_records: dict) -> dict:
+def filter_cf_dns(cf_dns_records: dict, zone_name: str) -> dict:
     dns_mappings = defaultdict(dict)
     for dns_record in cf_dns_records:
         # Convert "whatever.ts.example.com" to "whatever.ts"
-        subdomain_name = (
-            dns_record["name"].replace(dns_record["zone_name"], "").strip(".")
-        )
+        subdomain_name = dns_record["name"].replace(zone_name, "").strip(".")
         # Only return DNS records created by magicwand
         # Only return A or AAAA records
         if (
@@ -141,7 +139,7 @@ def parse_arguments():
     return args
 
 
-if __name__ == "__main__":
+def main():
     args = parse_arguments()
     logging.basicConfig(level=args.log_level)
 
@@ -158,10 +156,14 @@ if __name__ == "__main__":
         ts_dns_records = {}
 
     cf_api_inst = CloudflareAPI(args.cf_apikey)
+    cf_zone_details_raw = cf_api_inst.get_zone_details(args.cf_zone_id)
+    logging.debug("Fetched Cloudflare zone details: %s", cf_zone_details_raw)
+    zone_name = cf_zone_details_raw["result"]["name"]
+
     cf_dns_records_raw = cf_api_inst.get_dns_records(args.cf_zone_id)
     logging.debug("Fetched Cloudflare DNS records: %s", cf_dns_records_raw)
 
-    cf_dns_records = filter_cf_dns(cf_dns_records_raw)
+    cf_dns_records = filter_cf_dns(cf_dns_records_raw, zone_name)
     logging.info(
         "Fetched Cloudflare DNS data (%i magicwand records, %i total).",
         len(cf_dns_records),
@@ -179,3 +181,7 @@ if __name__ == "__main__":
         )
 
     logging.info("All done! %i devices synced.", len(ts_dns_records))
+
+
+if __name__ == "__main__":
+    main()

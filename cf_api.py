@@ -58,6 +58,11 @@ class CloudflareAPI:
             page_count += 1
         return result
 
+    def get_zone_details(self, zone_identifier: str):
+        url = f"{self.API_BASE}/zones/{zone_identifier}"
+
+        return self._do_request(url, "GET").json()
+
     def get_dns_records(self, zone_identifier: str) -> dict:
         url = f"{self.API_BASE}/zones/{zone_identifier}/dns_records"
 
